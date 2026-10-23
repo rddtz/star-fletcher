@@ -94,6 +94,21 @@ double elapsed_seconds(const uint64_t t_end, const uint64_t t_start){
     return ((double)t_end - t_start) * SECONDS_PER_NS;
 }
 
+// anchors to align the FxT trace with external traces (iotrace, CLOCK_MONOTONIC)
+// the FxT user event can only be emitted while StarPU is running
+enum { ANCHOR_START = 1, ANCHOR_TASKS_DONE, ANCHOR_IO_CLOSED, ANCHOR_EXIT };
+
+static void anchor(unsigned long code, const char* name, bool to_fxt){
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    if(to_fxt){
+        starpu_fxt_trace_user_event(code);
+    }
+    printf("ANCHOR %s %lu %llu\n", name, code,
+            (unsigned long long)ts.tv_sec * NS_PER_SECOND + ts.tv_nsec);
+    fflush(stdout);
+}
+
 
 static struct starpu_perfmodel dump_block_perf_model = {
     .type = STARPU_HISTORY_BASED,
@@ -393,6 +408,7 @@ int main(int argc, char **argv){
 
     int ret = starpu_init(NULL);
     STARPU_CHECK_RETURN_VALUE(ret, "starpu_init");
+    anchor(ANCHOR_START, "start", true);
 
     //init the IO here
     TRY(io_state_init(bin_filename, 4096, total_saved_moments, g_volume_width * g_volume_width * g_volume_width));
@@ -746,6 +762,7 @@ int main(int argc, char **argv){
     DEBUG("Submitted all tasks\n");
     //at least after all iterations
     starpu_task_wait_for_all();
+    anchor(ANCHOR_TASKS_DONE, "tasks_done", true);
 
     const uint64_t end_time = get_timestamp_ns();
 
@@ -825,6 +842,8 @@ int main(int argc, char **argv){
     mem_free(&static_allocs);
     starpu_shutdown();
     assert(io_state_finish() == 0);
+    anchor(ANCHOR_IO_CLOSED, "io_closed", false);
+    anchor(ANCHOR_EXIT, "exit", false);
     return program_status;
 }
 
