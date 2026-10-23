@@ -126,6 +126,15 @@
             stdenv = cudaStdenv;
         };
 
+        # CPU only, with FxT, for the I/O traces (iotrace + StarVZ)
+        star-fletcher-trace = pkgs.callPackage ./star-fletcher.nix {
+            StarPU = starpu-base;
+            cudaPackages = cudaPacks;
+            enableTrace = true;
+            compileAsRelease = true;
+            stdenv = pkgs.gcc13Stdenv;
+        };
+
         nixglhost = nix-gl-host.defaultPackage.${system};
 
         kernel-test = pkgs.callPackage ./tests/kernel-opt/kernel-test.nix {
@@ -205,7 +214,7 @@
         };
         packages = {
           default = star-fletcher;
-          inherit star-fletcher star-fletcher-cuda star-fletcher-cuda-no-cpu-kernel star-fletcher-cuda-trace kernel-test;
+          inherit star-fletcher star-fletcher-cuda star-fletcher-cuda-no-cpu-kernel star-fletcher-cuda-trace star-fletcher-trace kernel-test;
         };
     });
 }
